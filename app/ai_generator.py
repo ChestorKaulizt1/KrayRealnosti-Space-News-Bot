@@ -3,7 +3,7 @@ import os
 from openai import OpenAI
 
 
-MODEL = "gpt-6-astra"
+MODEL = "gpt-6-luna"
 
 client = OpenAI(
     api_key=os.environ.get("OPENAI_API_KEY")
