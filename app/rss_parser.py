@@ -197,10 +197,35 @@ def is_space_article(
     title: str,
     source: str = ""
 ) -> bool:
+    title_lower = title.lower()
+
     score = calculate_relevance_score(
-        title,
-        source
+        title=title,
+        source=source
     )
+
+    if score < 3:
+        return False
+
+    earth_keywords = [
+        "earth",
+        "earth observatory",
+        "weather",
+        "climate",
+        "wildfire",
+        "fire cloud",
+        "hurricane",
+        "storm",
+        "ocean",
+        "forest",
+        "atmosphere",
+    ]
+
+    for keyword in earth_keywords:
+        if keyword in title_lower:
+            return False
+
+    return True
 
     return score >= 3
 
