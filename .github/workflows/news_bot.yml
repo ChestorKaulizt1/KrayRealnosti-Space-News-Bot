@@ -27,5 +27,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run news collector
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           python -m app.main
