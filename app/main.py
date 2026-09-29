@@ -1,5 +1,6 @@
 from app.rss_parser import collect_news
 from app.article_parser import get_article_text
+from app.ai_generator import generate_post
 
 
 def main():
@@ -29,6 +30,7 @@ def main():
         print(f"Дата: {article['published']}")
         print(f"Ссылка: {article['url']}")
 
+        print()
         print("Получаем текст статьи...")
 
         text = get_article_text(
@@ -44,19 +46,24 @@ def main():
             f"{len(text)} символов"
         )
 
-        # Показываем первые 500 символов
-        # для проверки работы парсера.
-        preview = text[:500]
+        print()
+        print("Отправляем статью в OpenAI...")
+
+        post = generate_post(
+            title=article["title"],
+            article_text=text
+        )
+
+        if not post:
+            print("⚠ Не удалось создать пост.")
+            continue
 
         print()
-        print("ПРЕДПРОСМОТР ТЕКСТА:")
-        print("-" * 60)
-        print(preview)
-
-        if len(text) > 500:
-            print("...")
-        
-        print("-" * 60)
+        print("=" * 60)
+        print("ГОТОВЫЙ ПОСТ")
+        print("=" * 60)
+        print(post)
+        print("=" * 60)
 
 
 if __name__ == "__main__":
