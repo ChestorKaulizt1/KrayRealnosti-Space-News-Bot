@@ -1,0 +1,31 @@
+name: Space News Collector
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "17 * * * *"
+
+jobs:
+  collect-news:
+
+    runs-on: ubuntu-24.04
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run news collector
+        run: |
+          python -m app.main
