@@ -178,7 +178,7 @@ def calculate_relevance_score(
     title: str,
     source: str = ""
 ) -> int:
-    text = f"{title} {source}".lower()
+    text = title.lower()
 
     score = 0
 
