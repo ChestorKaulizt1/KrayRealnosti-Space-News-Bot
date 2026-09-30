@@ -278,7 +278,6 @@ def generate_post(
 
 Создай на основе этой информации готовый пост
 для Telegram-канала «КРАЙ РЕАЛЬНОСТИ».
-"""
 
     try:
         response = client.chat.completions.create(
