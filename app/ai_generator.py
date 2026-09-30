@@ -3,10 +3,11 @@ import os
 from openai import OpenAI
 
 
-MODEL = "gpt-5-mini"
+MODEL = "openrouter/free"
 
 client = OpenAI(
-    api_key=os.environ.get("OPENAI_API_KEY")
+    api_key=os.environ.get("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1",
 )
 
 
@@ -29,16 +30,14 @@ SYSTEM_PROMPT = """
 4. Сохраняй научную точность.
 5. Пиши живым человеческим языком.
 6. Не начинай пост со слов «Учёные обнаружили».
-7. Используй сильный первый абзац, который вызывает интерес.
+7. Сделай первый абзац максимально интересным.
 8. Не используй чрезмерный кликбейт.
 9. Не повторяй одну и ту же мысль разными словами.
-10. Не делай слишком длинный текст.
-11. Используй короткие абзацы, удобные для Telegram.
-12. Можно использовать 1–3 подходящих эмодзи, но не перебарщивай.
-13. В конце добавь короткую фразу, которая побуждает читателя
-    задуматься или обсудить тему.
-14. Не добавляй хэштеги.
-15. Не добавляй ссылки — ссылка будет добавлена программой отдельно.
+10. Используй короткие абзацы, удобные для Telegram.
+11. Можно использовать 1–3 подходящих эмодзи.
+12. Не добавляй хэштеги.
+13. Не добавляй ссылку на источник.
+14. В конце добавь короткую мысль или вопрос читателю.
 
 Формат:
 
@@ -58,7 +57,6 @@ def generate_post(
     if not article_text.strip():
         return ""
 
-    # Защита от слишком большого текста.
     article_text = article_text[:18000]
 
     prompt = f"""
@@ -75,17 +73,29 @@ def generate_post(
 """
 
     try:
-        response = client.responses.create(
+        response = client.chat.completions.create(
             model=MODEL,
-            instructions=SYSTEM_PROMPT,
-            input=prompt
+            messages=[
+                {
+                    "role": "system",
+                    "content": SYSTEM_PROMPT
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.7,
         )
 
-        result = response.output_text.strip()
+        result = response.choices[0].message.content
 
-        return result
+        if not result:
+            return ""
+
+        return result.strip()
 
     except Exception as error:
-        print("⚠ Ошибка OpenAI API:")
+        print("⚠ Ошибка OpenRouter API:")
         print(error)
         return ""
