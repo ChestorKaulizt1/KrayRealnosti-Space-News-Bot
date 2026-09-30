@@ -25,6 +25,55 @@ MODELS = [
 
 TEMPERATURE = 0.2
 
+def extract_response_text(response) -> str:
+    """
+    Безопасно извлекает текст из ответа OpenRouter.
+    """
+
+    try:
+        choices = getattr(response, "choices", None)
+
+        if not choices:
+            print("⚠ OpenRouter вернул ответ без choices.")
+            return ""
+
+        choice = choices[0]
+
+        if choice is None:
+            print("⚠ OpenRouter вернул пустой choice.")
+            return ""
+
+        message = getattr(choice, "message", None)
+
+        if message is None:
+            print("⚠ OpenRouter вернул пустой message.")
+            return ""
+
+        content = getattr(message, "content", None)
+
+        if content:
+            return str(content).strip()
+
+        # Некоторые reasoning-модели могут вернуть текст
+        # в другом поле.
+        reasoning = getattr(message, "reasoning", None)
+
+        if reasoning:
+            print(
+                "⚠ Модель вернула reasoning вместо обычного текста."
+            )
+
+        print(
+            "⚠ В ответе OpenRouter отсутствует текст content."
+        )
+
+        return ""
+
+    except Exception as error:
+        print(
+            f"⚠ Ошибка извлечения ответа OpenRouter: {error}"
+        )
+        return ""
 
 SYSTEM_PROMPT = """
 Ты — профессиональный научный редактор Telegram-канала
@@ -371,12 +420,12 @@ def generate_with_model(
         max_tokens=1800,
     )
 
-    result = response.choices[0].message.content
+    result = extract_response_text(response)
 
-    if not result:
-        return ""
+if not result:
+    return ""
 
-    return result.strip()
+return result
 
 
 def generate_post(
