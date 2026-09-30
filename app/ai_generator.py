@@ -138,20 +138,23 @@ def generate_post(
 
         result = response.choices[0].message.content
 
-if not result:
-    print("⚠ OpenRouter вернул пустой ответ.")
-    return ""
+        if not result:
+            print("⚠ OpenRouter вернул пустой ответ.")
+            return ""
 
-result = result.strip()
+        result = result.strip()
 
-if result.lower() in [
-    "user safety: safe",
-    "safe",
-]:
-    print("⚠ OpenRouter вернул служебный ответ вместо текста поста.")
-    return ""
+        if result.lower() in [
+            "user safety: safe",
+            "safe",
+        ]:
+            print(
+                "⚠ OpenRouter вернул служебный ответ "
+                "вместо текста поста."
+            )
+            return ""
 
-return result
+        return result
 
     except Exception as error:
         print("⚠ Ошибка OpenRouter API:")
