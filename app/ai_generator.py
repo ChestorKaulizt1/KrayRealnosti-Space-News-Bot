@@ -8,9 +8,7 @@ from openai import OpenAI
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 if not OPENROUTER_API_KEY:
-    raise RuntimeError(
-        "Не найден секрет OPENROUTER_API_KEY"
-    )
+    raise RuntimeError("Не найден секрет OPENROUTER_API_KEY")
 
 
 client = OpenAI(
@@ -19,19 +17,34 @@ client = OpenAI(
 )
 
 
-MODEL = "nvidia/nemotron-3.5-lightning:free"
+MODEL = "qwen/qwen3.8-27b:free"
 
 
 SYSTEM_PROMPT = """
 Ты — профессиональный научный редактор Telegram-канала
 «КРАЙ РЕАЛЬНОСТИ».
 
-Твоя задача — написать качественный русский Telegram-пост
-на основе переданной научной статьи о космосе.
+Твоя задача — написать готовый Telegram-пост на русском языке
+на основе переданной научной статьи.
 
-ГЛАВНОЕ ПРАВИЛО:
+КРИТИЧЕСКИ ВАЖНО:
 
-Используй только информацию из статьи.
+Ответ должен содержать ТОЛЬКО готовый Telegram-пост.
+
+НЕЛЬЗЯ писать:
+- анализ задания;
+- рассуждения;
+- thinking;
+- reasoning;
+- пояснения о том, как ты создавал текст;
+- "Вот готовый пост";
+- "Давайте разберём";
+- комментарии о своей работе;
+- заключительные комментарии от AI.
+
+Начинай сразу с заголовка поста.
+
+ИСПОЛЬЗУЙ ТОЛЬКО ИНФОРМАЦИЮ ИЗ СТАТЬИ.
 
 Нельзя придумывать:
 - факты;
@@ -39,15 +52,13 @@ SYSTEM_PROMPT = """
 - даты;
 - имена;
 - организации;
-- открытия;
-- выводы;
-- научные объяснения, которых нет в статье.
+- научные результаты;
+- выводы.
 
-Если статья говорит о возможности, гипотезе,
-теоретической модели или предположении —
-обязательно сохраняй эту неопределённость.
+Если в статье указана гипотеза, теория, предположение
+или моделирование — обязательно сохраняй эту неопределённость.
 
-Не превращай гипотезу в установленный факт.
+Не превращай гипотезу в доказанный факт.
 
 РУССКИЙ ЯЗЫК:
 
@@ -55,14 +66,11 @@ SYSTEM_PROMPT = """
 
 Не делай дословный машинный перевод.
 
-Не используй странные английские кальки.
+Не используй английские слова без необходимости.
 
-Не придумывай русские научные термины.
+Не используй странные кальки.
 
-Если термин лучше оставить на английском,
-можно оставить оригинальное написание.
-
-Особенно осторожно обращайся с:
+Особенно осторожно обращайся с научными терминами:
 
 black hole hair
 boson star
@@ -73,36 +81,28 @@ compactness
 instability
 scalar cloud
 
-Не переводи "black hole hair" буквально
-как "волосы чёрной дыры" или "борода чёрной дыры".
+Не переводи "black hole hair" буквально как
+"волосы чёрной дыры".
 
-Передай научный смысл простыми русскими словами.
-
-Не используй случайные английские слова
-в русском тексте.
+Передавай смысл понятным русским языком.
 
 СТРУКТУРА:
 
-Напиши примерно 4–6 абзацев.
+1. Короткий интересный заголовок.
+2. Что произошло.
+3. Что обнаружили или предложили исследователи.
+4. Как это объясняется.
+5. Что это может означать.
+6. Какие существуют ограничения и неопределённости.
 
-Первый абзац — короткий интересный заголовок.
+Объём: примерно 4–6 абзацев.
 
-Можно использовать один подходящий эмодзи.
-
-Затем объясни:
-
-1. Что произошло.
-2. Что обнаружили исследователи.
-3. Как это объясняется.
-4. Что это может означать.
-5. Какие есть ограничения или неопределённости.
-
-Пиши понятно человеку, который интересуется космосом,
+Пиши для обычного человека, который интересуется космосом,
 но не является профессиональным физиком.
 
-Не преувеличивай значение исследования.
-
 Не используй кликбейт.
+
+Не преувеличивай значение исследования.
 
 НЕ ДОБАВЛЯЙ:
 
@@ -111,9 +111,11 @@ scalar cloud
 - хэштеги;
 - рекламу;
 - призывы подписаться;
-- комментарии от себя.
+- служебные комментарии;
+- фразу "Вот готовый Telegram-пост";
+- фразу "Текст составлен на основе статьи".
 
-Верни только готовый текст поста.
+Верни только готовый пост.
 """
 
 
@@ -125,9 +127,21 @@ BAD_PATTERNS = [
     r"финальн\w*\s+ревью",
     r"финальн\w*\s+обзор",
 
+    r"вот готовый",
+    r"давайте разбер",
+    r"я проанализ",
+    r"я должен",
+    r"моя задача",
+    r"thinking",
+    r"reasoning",
+    r"step\s*by\s*step",
+    r"let me",
+    r"i need to",
+    r"i will",
+    r"final answer",
+
     r"волос\w*\s+чёрной дыры",
     r"волос\w*\s+черной дыры",
-
     r"бород\w*\s+чёрной дыры",
     r"бород\w*\s+черной дыры",
 
@@ -136,7 +150,6 @@ BAD_PATTERNS = [
     r"выстрелить из собственных волос",
 
     r"словно пробка",
-
     r"landé",
     r"ландé",
 
@@ -144,10 +157,8 @@ BAD_PATTERNS = [
     r"склеивается в облако",
 
     r"поглощают материи",
-
     r"стала лысыми",
     r"ставшей лысыми",
-
     r"ожидают носить",
 ]
 
@@ -157,59 +168,60 @@ def has_bad_language(text: str) -> bool:
         return True
 
     for pattern in BAD_PATTERNS:
-        if re.search(
-            pattern,
-            text,
-            flags=re.IGNORECASE,
-        ):
+        if re.search(pattern, text, flags=re.IGNORECASE):
             return True
 
     return False
 
 
-def extract_response_text(response) -> str:
-    """
-    Безопасно получает обычный текст ответа OpenRouter.
-    """
+def clean_post(text: str) -> str:
+    if not text:
+        return ""
 
+    text = text.strip()
+
+    # Удаляем возможные служебные маркеры
+    text = re.sub(
+        r"^(Вот готовый Telegram-пост:?\s*)",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    text = re.sub(
+        r"^Готовый пост:?\s*",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    # Удаляем markdown-заголовок вида ###
+    text = re.sub(r"^#{1,6}\s*", "", text)
+
+    return text.strip()
+
+
+def extract_response_text(response) -> str:
     try:
-        choices = getattr(
-            response,
-            "choices",
-            None,
-        )
+        choices = getattr(response, "choices", None)
 
         if not choices:
-            print(
-                "⚠ OpenRouter не вернул choices."
-            )
+            print("⚠ OpenRouter не вернул choices.")
             return ""
 
         choice = choices[0]
 
         if choice is None:
-            print(
-                "⚠ OpenRouter вернул пустой choice."
-            )
+            print("⚠ OpenRouter вернул пустой choice.")
             return ""
 
-        message = getattr(
-            choice,
-            "message",
-            None,
-        )
+        message = getattr(choice, "message", None)
 
         if message is None:
-            print(
-                "⚠ OpenRouter не вернул message."
-            )
+            print("⚠ OpenRouter не вернул message.")
             return ""
 
-        content = getattr(
-            message,
-            "content",
-            None,
-        )
+        content = getattr(message, "content", None)
 
         if isinstance(content, str):
             return content.strip()
@@ -217,48 +229,41 @@ def extract_response_text(response) -> str:
         if content:
             return str(content).strip()
 
-        print(
-            "⚠ Модель вернула reasoning, "
-            "но итоговый content отсутствует."
-        )
-
+        print("⚠ Модель не вернула текстовый content.")
         return ""
 
     except Exception as error:
-        print(
-            f"⚠ Ошибка обработки ответа AI: {error}"
-        )
+        print(f"⚠ Ошибка обработки ответа AI: {error}")
         return ""
 
 
-def generate_post(
-    title: str,
-    article_text: str,
-) -> str:
+def generate_post(title: str, article_text: str) -> str:
 
     prompt = f"""
-Напиши готовый Telegram-пост на русском языке.
+Создай готовый Telegram-пост на русском языке.
 
 ОРИГИНАЛЬНЫЙ ЗАГОЛОВОК:
-
 {title}
 
 ТЕКСТ НАУЧНОЙ СТАТЬИ:
-
 {article_text[:28000]}
 
-Проверь перед ответом:
+ЕЩЁ РАЗ ПРОВЕРЬ ПЕРЕД ОТВЕТОМ:
 
-- все факты должны быть взяты из статьи;
-- гипотезы должны оставаться гипотезами;
-- не добавляй собственных фактов;
+- используй только факты из статьи;
+- не придумывай факты;
 - не придумывай цифры;
-- не придумывай названия;
-- не используй машинные кальки;
-- текст должен быть естественным русским языком;
-- не добавляй источники;
+- не придумывай имена;
+- гипотезы оставляй гипотезами;
+- пиши естественным русским языком;
+- не используй машинный перевод;
 - не добавляй ссылки;
-- не добавляй хэштеги.
+- не добавляй хэштеги;
+- не добавляй источники;
+- не добавляй комментарии от AI;
+- не объясняй процесс написания.
+
+ОТВЕТ ДОЛЖЕН НАЧИНАТЬСЯ С ЗАГОЛОВКА ПОСТА.
 
 Верни только готовый Telegram-пост.
 """
@@ -266,16 +271,16 @@ def generate_post(
     for attempt in range(1, 4):
 
         print()
-        print(
-            f"Попытка генерации {attempt}/3"
-        )
+        print(f"Попытка генерации {attempt}/3")
 
         try:
+
             response = client.with_options(
                 timeout=60.0,
                 max_retries=0,
             ).chat.completions.create(
                 model=MODEL,
+
                 messages=[
                     {
                         "role": "system",
@@ -286,50 +291,54 @@ def generate_post(
                         "content": prompt,
                     },
                 ],
+
                 temperature=0.2,
-                max_tokens=1800,
+
+                max_tokens=1400,
+
                 extra_body={
-    "reasoning": {
-        "enabled": False
-    }
-},
+                    "reasoning": {
+                        "enabled": False,
+                        "exclude": True,
+                    }
+                },
             )
 
-            post = extract_response_text(
-                response
-            )
+            post = extract_response_text(response)
 
             if not post:
-                print(
-                    "⚠ Пустой ответ от модели."
-                )
+
+                print("⚠ Пустой ответ от модели.")
 
                 if attempt < 3:
-                    print(
-                        "⏳ Повторяем через 5 секунд..."
-                    )
+                    print("⏳ Повторяем через 5 секунд...")
                     time.sleep(5)
 
                 continue
 
-            print(
-                f"✓ Ответ получен от {MODEL}"
-            )
+            post = clean_post(post)
+
+            print(f"✓ Ответ получен от {MODEL}")
 
             if has_bad_language(post):
-                print(
-                    "⚠ Обнаружены подозрительные "
-                    "формулировки."
-                )
 
-                print(
-                    "⚠ Этот вариант отклонён."
-                )
+                print("⚠ Обнаружены подозрительные формулировки.")
+                print("⚠ Этот вариант отклонён.")
 
                 if attempt < 3:
-                    print(
-                        "⏳ Повторяем генерацию..."
-                    )
+                    print("⏳ Повторяем генерацию...")
+                    time.sleep(3)
+
+                continue
+
+            # Минимальная проверка длины
+            if len(post) < 300:
+
+                print("⚠ Ответ слишком короткий.")
+                print("⚠ Этот вариант отклонён.")
+
+                if attempt < 3:
+                    print("⏳ Повторяем генерацию...")
                     time.sleep(3)
 
                 continue
@@ -340,38 +349,23 @@ def generate_post(
 
             error_text = str(error)
 
-            print(
-                f"⚠ Ошибка модели: {error_text}"
-            )
+            print(f"⚠ Ошибка модели: {error_text}")
 
             if "429" in error_text:
-                print(
-                    "⏳ Модель временно перегружена."
-                )
+                print("⏳ Модель временно перегружена.")
 
             if "timeout" in error_text.lower():
-                print(
-                    "⏱ AI-запрос превысил "
-                    "лимит 60 секунд."
-                )
+                print("⏱ AI-запрос превысил лимит 60 секунд.")
 
             if attempt < 3:
-                print(
-                    "⏳ Ждём 5 секунд "
-                    "перед повтором..."
-                )
+                print("⏳ Ждём 5 секунд перед повтором...")
                 time.sleep(5)
 
     print()
-    print(
-        "❌ Не удалось получить "
-        "корректный пост от AI."
-    )
+    print("❌ Не удалось получить корректный пост от AI.")
 
     return ""
 
 
 if __name__ == "__main__":
-    print(
-        "AI generator loaded successfully."
-    )
+    print("AI generator loaded successfully.")
