@@ -19,7 +19,7 @@ client = OpenAI(
 )
 
 
-MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
+MODEL = "nvidia/nemotron-3.5-lightning:free"
 
 
 SYSTEM_PROMPT = """
