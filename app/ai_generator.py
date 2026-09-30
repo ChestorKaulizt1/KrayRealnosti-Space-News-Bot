@@ -289,10 +289,10 @@ def generate_post(
                 temperature=0.2,
                 max_tokens=1800,
                 extra_body={
-                    "reasoning": {
-                        "exclude": True
-                    }
-                },
+    "reasoning": {
+        "enabled": False
+    }
+},
             )
 
             post = extract_response_text(
