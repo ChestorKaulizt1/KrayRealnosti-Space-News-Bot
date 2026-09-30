@@ -293,18 +293,29 @@ def generate_post(
         )
 
         try:
-            response = client.chat.completions.create(
-                model=MODEL,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": SYSTEM_PROMPT,
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    },
-                ],
+            response = client.with_options(
+    timeout=60.0,
+    max_retries=0,
+).chat.completions.create(
+    model=MODEL,
+    messages=[
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT,
+        },
+        {
+            "role": "user",
+            "content": prompt,
+        },
+    ],
+    temperature=0.2,
+    max_tokens=1800,
+    extra_body={
+        "reasoning": {
+            "exclude": True
+        }
+    },
+)
                 temperature=0.2,
                 max_tokens=1800,
 
