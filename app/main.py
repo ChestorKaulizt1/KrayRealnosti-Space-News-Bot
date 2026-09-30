@@ -9,7 +9,15 @@ def main():
     print("=" * 60)
 
     articles = collect_news()
+    # Выбираем максимум 2 новости с самым высоким рейтингом
+    articles = sorted(
+        articles,
+        key=lambda article: article["score"],
+        reverse=True
+    )[:2]
 
+    print()
+    print(f"Выбрано для генерации постов: {len(articles)}")
     print()
     print("=" * 60)
     print(f"Новых космических материалов: {len(articles)}")
@@ -23,6 +31,7 @@ def main():
         articles,
         start=1
     ):
+        
         print()
         print(f"[{number}] {article['source']}")
         print(f"Название: {article['title']}")
@@ -47,7 +56,7 @@ def main():
         )
 
         print()
-        print("Отправляем статью в OpenAI...")
+        print("Отправляем статью в OpenRouter...")
 
         post = generate_post(
             title=article["title"],
