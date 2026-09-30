@@ -9,8 +9,8 @@ def main():
     print("=" * 60)
 
     articles = collect_news()
-    # Выбираем максимум 2 новости с самым высоким рейтингом
-     interesting_keywords = [
+
+    interesting_keywords = [
         "black hole",
         "black holes",
         "boson star",
@@ -83,6 +83,7 @@ def main():
 
     print()
     print(f"Выбрано для генерации постов: {len(articles)}")
+
     print()
     print("=" * 60)
     print(f"Новых космических материалов: {len(articles)}")
@@ -96,7 +97,6 @@ def main():
         articles,
         start=1
     ):
-        
         print()
         print(f"[{number}] {article['source']}")
         print(f"Название: {article['title']}")
