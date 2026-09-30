@@ -25,9 +25,10 @@ MODELS = [
 
 TEMPERATURE = 0.2
 
+
 def extract_response_text(response) -> str:
     """
-    Безопасно извлекает текст из ответа OpenRouter.
+    Безопасно извлекает обычный текст из ответа OpenRouter.
     """
 
     try:
@@ -54,17 +55,16 @@ def extract_response_text(response) -> str:
         if content:
             return str(content).strip()
 
-        # Некоторые reasoning-модели могут вернуть текст
-        # в другом поле.
         reasoning = getattr(message, "reasoning", None)
 
         if reasoning:
             print(
-                "⚠ Модель вернула reasoning вместо обычного текста."
+                "⚠ Модель вернула reasoning, "
+                "но обычный текст отсутствует."
             )
 
         print(
-            "⚠ В ответе OpenRouter отсутствует текст content."
+            "⚠ В ответе OpenRouter отсутствует content."
         )
 
         return ""
@@ -74,6 +74,7 @@ def extract_response_text(response) -> str:
             f"⚠ Ошибка извлечения ответа OpenRouter: {error}"
         )
         return ""
+
 
 SYSTEM_PROMPT = """
 Ты — профессиональный научный редактор Telegram-канала
@@ -343,8 +344,8 @@ def fix_generated_post(
 
         result = extract_response_text(response)
 
-if result:
-    result = result.strip()
+        if result:
+            result = result.strip()
 
         if result and not has_bad_language(result):
             return result
@@ -354,7 +355,7 @@ if result:
             f"⚠ Ошибка при редактуре: {error}"
         )
 
-    return original_post
+    return ""
 
 
 def generate_with_model(
@@ -420,12 +421,7 @@ def generate_with_model(
         max_tokens=1800,
     )
 
-    result = extract_response_text(response)
-
-if not result:
-    return ""
-
-return result
+    return extract_response_text(response)
 
 
 def generate_post(
@@ -458,7 +454,7 @@ def generate_post(
                     print(
                         "⚠ Модель вернула пустой ответ."
                     )
-                    continue
+                    break
 
                 print(
                     f"✓ Ответ получен от {model}"
@@ -475,9 +471,7 @@ def generate_post(
                         article_text=article_text,
                     )
 
-                    if fixed and not has_bad_language(
-                        fixed
-                    ):
+                    if fixed and not has_bad_language(fixed):
                         print(
                             "✓ Текст успешно "
                             "отредактирован."
@@ -489,7 +483,7 @@ def generate_post(
                         "исправить текст."
                     )
 
-                    continue
+                    break
 
                 return post
 
