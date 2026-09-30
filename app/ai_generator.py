@@ -341,10 +341,10 @@ def fix_generated_post(
             max_tokens=1800,
         )
 
-        result = response.choices[0].message.content
+        result = extract_response_text(response)
 
-        if result:
-            result = result.strip()
+if result:
+    result = result.strip()
 
         if result and not has_bad_language(result):
             return result
