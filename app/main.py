@@ -10,9 +10,74 @@ def main():
 
     articles = collect_news()
     # Выбираем максимум 2 новости с самым высоким рейтингом
+     interesting_keywords = [
+        "black hole",
+        "black holes",
+        "boson star",
+        "neutron star",
+        "pulsar",
+        "magnetar",
+        "supernova",
+        "exoplanet",
+        "exoplanets",
+        "alien",
+        "mystery",
+        "mysterious",
+        "strange",
+        "unexpected",
+        "discovery",
+        "discover",
+        "revealed",
+        "found",
+        "ancient",
+        "quasar",
+        "galaxy",
+        "galaxies",
+        "asteroid",
+        "comet",
+        "interstellar",
+        "mars",
+        "moon",
+        "lunar",
+        "jupiter",
+        "saturn",
+        "starbirth",
+        "star formation",
+        "gravitational wave",
+        "gamma ray",
+    ]
+
+    boring_keywords = [
+        "contract",
+        "conference",
+        "press release",
+        "coverage",
+        "services",
+        "agreement",
+        "partnership",
+        "statement",
+        "office",
+        "event",
+    ]
+
+    def calculate_interest(article):
+        title = article["title"].lower()
+
+        interest = article["score"]
+
+        for keyword in interesting_keywords:
+            if keyword in title:
+                interest += 5
+
+        for keyword in boring_keywords:
+            if keyword in title:
+                interest -= 4
+
+        return interest
+
     articles = sorted(
         articles,
-        key=lambda article: article["score"],
+        key=calculate_interest,
         reverse=True
     )[:2]
 
