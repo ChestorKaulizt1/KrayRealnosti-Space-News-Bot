@@ -4,8 +4,7 @@ import re
 from openai import OpenAI
 
 
-MODEL = "openrouter/free"
-
+MODEL = "google/gemma-4-31b-it:free"
 
 client = OpenAI(
     api_key=os.environ.get("OPENROUTER_API_KEY"),
