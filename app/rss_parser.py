@@ -1,4 +1,3 @@
-```python
 import re
 import feedparser
 from typing import List, Dict, Optional
@@ -785,4 +784,3 @@ if __name__ == "__main__":
     print(
         f"Всего найдено: {len(articles)}"
     )
-```
