@@ -474,9 +474,13 @@ def parse_feed(source: str, url: str) -> List[Dict]:
 # ============================================================
 
 def collect_news(
-    feeds: Dict[str, str],
+    feeds: Dict[str, str] = None,
     max_articles_per_source: int = 5,
 ) -> List[Dict]:
+
+    if feeds is None:
+        from app.config import RSS_FEEDS
+        feeds = RSS_FEEDS
 
     all_articles = []
 
