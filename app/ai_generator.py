@@ -9,10 +9,6 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
 
-# Модели проверяем по очереди.
-
-# Если первая получает временный 429, пробуем следующую.
-
 MODELS = [
 "qwen/qwen3.8-27b:free",
 "nvidia/nemotron-3-nano-30b-a3b:free",
@@ -20,8 +16,6 @@ MODELS = [
 ]
 
 MAX_RETRIES_PER_MODEL = 2
-
-# Задержки между повторными попытками.
 
 RETRY_DELAYS = [10, 30]
 
@@ -45,20 +39,19 @@ SYSTEM_PROMPT = """
 2. Используй только информацию из переданной статьи.
 3. Сохраняй научный смысл.
 4. Если в статье есть числа, расстояния, даты, температуры,
-   размеры или другие конкретные значения — не изменяй их без причины.
-5. Не пиши «учёные в шоке», «это перевернуло науку»,
-   «сенсация века» и подобные кликбейтные формулировки.
+   размеры или другие конкретные значения — не изменяй их.
+5. Не используй кликбейт вроде «учёные в шоке» или
+   «это перевернуло науку».
 6. Не начинай каждый пост одинаково.
 7. Текст должен быть живым и понятным обычному читателю.
 8. Сложные научные термины объясняй простыми словами.
 9. Не добавляй информацию, которой нет в статье.
 10. Не упоминай, что текст создан ИИ.
-11. Не упоминай источник в отдельной технической строке.
-12. Не используй Markdown-заголовки с #.
+11. Не используй Markdown-заголовки с #.
 
 СТРУКТУРА:
 
-Начни с сильной первой фразы, которая вызывает интерес.
+Начни с сильной первой фразы.
 
 Затем объясни:
 — что обнаружили или произошло;
@@ -69,7 +62,7 @@ SYSTEM_PROMPT = """
 
 Используй короткие абзацы.
 
-В конце добавь естественный призыв:
+В конце добавь:
 
 🚀 Подписывайтесь на «КРАЙ РЕАЛЬНОСТИ», чтобы не пропускать
 самые интересные открытия Вселенной.
@@ -77,8 +70,11 @@ SYSTEM_PROMPT = """
 Длина:
 примерно 1200–2200 символов.
 
-Не пиши вступления вроде:
+Не пиши:
+«Вот готовый пост».
 «Вот пост для Telegram».
+«По вашему запросу».
+
 Сразу начинай с готового текста.
 """
 
@@ -110,52 +106,6 @@ timeout=90.0,
 max_retries=0,
 )
 
-def get_error_text(error) -> str:
-"""
-Пытаемся достать максимально полезную информацию
-из ошибки OpenAI/OpenRouter.
-"""
-parts = []
-
-```
-status_code = getattr(error, "status_code", None)
-if status_code:
-    parts.append(f"HTTP {status_code}")
-
-body = getattr(error, "body", None)
-if body:
-    parts.append(str(body))
-
-response = getattr(error, "response", None)
-
-if response is not None:
-    try:
-        response_status = getattr(response, "status_code", None)
-        if response_status and not status_code:
-            parts.append(f"HTTP {response_status}")
-    except Exception:
-        pass
-
-    try:
-        response_text = response.text
-        if response_text:
-            parts.append(response_text)
-    except Exception:
-        pass
-
-message = str(error)
-
-if message:
-    parts.append(message)
-
-result = " | ".join(parts)
-
-if len(result) > 3000:
-    result = result[:3000]
-
-return result
-```
-
 def get_status_code(error) -> Optional[int]:
 status_code = getattr(error, "status_code", None)
 
@@ -180,10 +130,46 @@ if response is not None:
 return None
 ```
 
+def get_error_text(error) -> str:
+parts = []
+
+```
+status_code = get_status_code(error)
+
+if status_code:
+    parts.append(f"HTTP {status_code}")
+
+body = getattr(error, "body", None)
+
+if body:
+    parts.append(str(body))
+
+response = getattr(error, "response", None)
+
+if response is not None:
+    try:
+        response_text = response.text
+
+        if response_text:
+            parts.append(response_text)
+
+    except Exception:
+        pass
+
+message = str(error)
+
+if message:
+    parts.append(message)
+
+result = " | ".join(parts)
+
+if len(result) > 3000:
+    result = result[:3000]
+
+return result
+```
+
 def get_retry_after(error) -> Optional[int]:
-"""
-Получает Retry-After от OpenRouter, если сервер его передал.
-"""
 response = getattr(error, "response", None)
 
 ```
@@ -211,9 +197,6 @@ return None
 ```
 
 def is_rate_limit_error(error) -> bool:
-"""
-Обычный HTTP 429.
-"""
 status_code = get_status_code(error)
 
 ```
@@ -227,15 +210,10 @@ return (
     or "rate limit" in text
     or "rate_limit" in text
     or "too many requests" in text
-    or "temporarily unavailable" in text
 )
 ```
 
 def is_daily_free_limit_error(error) -> bool:
-"""
-Отличаем дневной лимит бесплатной модели
-от временного rate limit.
-"""
 text = get_error_text(error).lower()
 
 ```
@@ -262,7 +240,7 @@ if status_code in (408, 409, 425, 500, 502, 503, 504):
 
 text = get_error_text(error).lower()
 
-temporary_patterns = [
+patterns = [
     "timeout",
     "timed out",
     "temporarily unavailable",
@@ -272,7 +250,7 @@ temporary_patterns = [
     "connection aborted",
 ]
 
-return any(pattern in text for pattern in temporary_patterns)
+return any(pattern in text for pattern in patterns)
 ```
 
 def clean_post(text: str) -> str:
@@ -282,11 +260,15 @@ return ""
 ````
 text = text.strip()
 
-# Убираем возможные markdown-обёртки.
-text = re.sub(r"^```(?:text|markdown)?\s*", "", text, flags=re.I)
+text = re.sub(
+    r"^```(?:text|markdown)?\s*",
+    "",
+    text,
+    flags=re.IGNORECASE,
+)
+
 text = re.sub(r"\s*```$", "", text)
 
-# Убираем служебные фразы в начале.
 prefixes = [
     "Вот готовый пост:",
     "Вот пост:",
@@ -299,10 +281,8 @@ for prefix in prefixes:
     if text.lower().startswith(prefix.lower()):
         text = text[len(prefix):].strip()
 
-# Убираем лишние пробелы.
 text = re.sub(r"[ \t]+", " ", text)
 
-# Не допускаем слишком много пустых строк.
 text = re.sub(r"\n{3,}", "\n\n", text)
 
 return text.strip()
@@ -348,12 +328,20 @@ choices = getattr(response, "choices", None)
     if not choices:
         return ""
 
-    message = getattr(choices[0], "message", None)
+    message = getattr(
+        choices[0],
+        "message",
+        None,
+    )
 
     if message is None:
         return ""
 
-    content = getattr(message, "content", None)
+    content = getattr(
+        message,
+        "content",
+        None,
+    )
 
     if content is None:
         return ""
@@ -371,10 +359,11 @@ def build_user_prompt(
 article_title: str,
 article_text: str,
 ) -> str:
-if len(article_text) > MAX_ARTICLE_LENGTH:
-article_text = article_text[:MAX_ARTICLE_LENGTH]
 
 ```
+if len(article_text) > MAX_ARTICLE_LENGTH:
+    article_text = article_text[:MAX_ARTICLE_LENGTH]
+
 return f"""
 ```
 
@@ -386,10 +375,14 @@ return f"""
 
 {article_text}
 
-Напиши готовый пост для Telegram-канала «КРАЙ РЕАЛЬНОСТИ».
+Напиши готовый пост для Telegram-канала
+«КРАЙ РЕАЛЬНОСТИ».
 
-Пост должен быть самостоятельным, интересным и понятным.
-Не добавляй факты, которых нет в статье.
+Пост должен быть самостоятельным,
+интересным и понятным.
+
+Не добавляй факты,
+которых нет в статье.
 """
 
 def generate_with_model(
@@ -414,11 +407,13 @@ for attempt in range(MAX_RETRIES_PER_MODEL + 1):
     )
 
     print(
-        f"   Попытка {attempt_number}/"
+        f"   Попытка "
+        f"{attempt_number}/"
         f"{MAX_RETRIES_PER_MODEL + 1}"
     )
 
     try:
+
         response = client.chat.completions.create(
             model=model,
             messages=[
@@ -441,98 +436,133 @@ for attempt in range(MAX_RETRIES_PER_MODEL + 1):
             },
         )
 
-        text = extract_response_text(response)
+        text = extract_response_text(
+            response
+        )
 
         if not text:
-            print("⚠ Модель вернула пустой ответ.")
+            print(
+                "⚠ Модель вернула "
+                "пустой ответ."
+            )
             return None
 
         text = clean_post(text)
 
         if not validate_post(text):
-            print("⚠ Ответ не прошёл проверку.")
+            print(
+                "⚠ Ответ не прошёл "
+                "проверку."
+            )
             return None
 
         print(
-            f"✓ Пост создан: {len(text)} символов."
+            f"✓ Пост создан: "
+            f"{len(text)} символов."
         )
 
         return text
 
     except Exception as error:
 
-        error_text = get_error_text(error)
-        status_code = get_status_code(error)
+        status_code = get_status_code(
+            error
+        )
+
+        error_text = get_error_text(
+            error
+        )
 
         print(
-            f"⚠ Ошибка модели {model}: "
+            f"⚠ Ошибка модели "
+            f"{model}: "
             f"HTTP {status_code or '?'}"
         )
 
         print(
-            f"  {error_text[:1000]}"
+            error_text[:1000]
         )
 
-        # Дневной лимит конкретной бесплатной модели.
-        if is_daily_free_limit_error(error):
+        if is_daily_free_limit_error(
+            error
+        ):
+
             print(
-                "⚠ Достигнут дневной лимит "
-                "бесплатной модели."
+                "⚠ Достигнут дневной "
+                "лимит бесплатной модели."
             )
+
             return None
 
-        # 429 — временный rate limit.
-        if is_rate_limit_error(error):
+        if is_rate_limit_error(
+            error
+        ):
 
-            retry_after = get_retry_after(error)
+            retry_after = get_retry_after(
+                error
+            )
 
             if retry_after is not None:
-                delay = min(retry_after, 120)
-            elif attempt < len(RETRY_DELAYS):
-                delay = RETRY_DELAYS[attempt]
+                delay = min(
+                    retry_after,
+                    120,
+                )
+            elif attempt < len(
+                RETRY_DELAYS
+            ):
+                delay = RETRY_DELAYS[
+                    attempt
+                ]
             else:
                 delay = 60
 
             if attempt < MAX_RETRIES_PER_MODEL:
+
                 print(
                     f"⏳ Rate limit. "
-                    f"Повтор через {delay} сек."
+                    f"Повтор через "
+                    f"{delay} сек."
                 )
 
                 time.sleep(delay)
+
                 continue
 
             print(
-                "➡ Модель временно недоступна. "
-                "Переключаемся на следующую."
+                "➡ Модель временно "
+                "недоступна."
             )
 
             return None
 
-        # Временные ошибки серверов.
-        if is_temporary_error(error):
+        if is_temporary_error(
+            error
+        ):
 
             if attempt < MAX_RETRIES_PER_MODEL:
-                delay = RETRY_DELAYS[attempt]
+
+                delay = RETRY_DELAYS[
+                    attempt
+                ]
 
                 print(
                     f"⏳ Временная ошибка. "
-                    f"Повтор через {delay} сек."
+                    f"Повтор через "
+                    f"{delay} сек."
                 )
 
                 time.sleep(delay)
+
                 continue
 
             print(
-                "➡ Сервер не восстановился. "
-                "Переключаемся на следующую модель."
+                "➡ Сервер не восстановился."
             )
 
             return None
 
-        # Любая другая ошибка.
         print(
-            "➡ Ошибка не похожа на временную. "
+            "➡ Неизвестная ошибка. "
             "Переходим к следующей модели."
         )
 
@@ -551,34 +581,43 @@ if not check_configuration():
     return None
 
 if not article_title:
-    print("❌ Пустой заголовок статьи.")
+    print(
+        "❌ Пустой заголовок статьи."
+    )
     return None
 
 if not article_text:
-    print("❌ Пустой текст статьи.")
+    print(
+        "❌ Пустой текст статьи."
+    )
     return None
 
 client = get_client()
 
 print(
-    f"🔄 Доступно моделей для генерации: "
+    f"🔄 Доступно моделей: "
     f"{len(MODELS)}"
 )
 
-for model_index, model in enumerate(MODELS, start=1):
+for model_index, model in enumerate(
+    MODELS,
+    start=1,
+):
 
     print()
     print(
-        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     )
 
     print(
-        f"🔹 Модель {model_index}/{len(MODELS)}: "
+        f"🔹 Модель "
+        f"{model_index}/"
+        f"{len(MODELS)}: "
         f"{model}"
     )
 
     print(
-        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     )
 
     post = generate_with_model(
@@ -589,28 +628,33 @@ for model_index, model in enumerate(MODELS, start=1):
     )
 
     if post:
+
         print(
-            f"✅ Успешно создан пост через "
-            f"{model}"
+            f"✅ Пост успешно создан "
+            f"через {model}"
         )
 
         return post
 
     print(
-        f"⚠ Модель {model} не смогла создать пост."
+        f"⚠ Модель {model} "
+        f"не создала пост."
     )
 
     if model_index < len(MODELS):
+
         print(
-            "➡ Переходим к следующей модели..."
+            "➡ Переключаемся "
+            "на следующую модель..."
         )
 
         time.sleep(3)
 
 print()
+
 print(
-    "❌ Все доступные модели не смогли "
-    "создать пост."
+    "❌ Все доступные модели "
+    "не смогли создать пост."
 )
 
 return None
@@ -620,18 +664,27 @@ if **name** == "**main**":
 
 ```
 print(
-    "Проверка конфигурации AI Generator"
+    "Проверка конфигурации "
+    "AI Generator"
 )
 
 if check_configuration():
-    print("✓ OPENROUTER_API_KEY найден.")
-    print("✓ Модели:")
+
+    print(
+        "✓ OPENROUTER_API_KEY найден."
+    )
+
+    print(
+        "✓ Доступные модели:"
+    )
 
     for model in MODELS:
-        print(f"  - {model}")
+        print(
+            f"  - {model}"
+        )
 
 else:
+
     print(
         "❌ OPENROUTER_API_KEY отсутствует."
     )
-```
