@@ -3,8 +3,11 @@ name: Space News Collector
 on:
 workflow_dispatch:
 
+schedule:
+- cron: "17 * * * *"
+
 jobs:
-test:
+collect-news:
 runs-on: ubuntu-24.04
 
 ```
@@ -54,7 +57,7 @@ steps:
       python -m py_compile app/ai_generator.py
       echo "Python syntax OK"
 
-  - name: Run application
+  - name: Run news collector
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
     run: |
