@@ -1,8 +1,9 @@
+```python
 import re
 import feedparser
-from typing import List, Dict
+from typing import List, Dict, Optional
 
-from app.database import article_exists, save_article
+from app.database import article_exists
 
 
 # ============================================================
@@ -24,6 +25,8 @@ SPACE_KEYWORDS = [
     # Планеты
     "planet",
     "planets",
+    "protoplanet",
+    "protoplanetary",
     "exoplanet",
     "exoplanets",
     "mars",
@@ -65,6 +68,7 @@ SPACE_KEYWORDS = [
     "black holes",
     "event horizon",
     "accretion disk",
+    "supermassive black hole",
 
     # Галактики
     "galaxy",
@@ -91,7 +95,6 @@ SPACE_KEYWORDS = [
     # Космические аппараты
     "spacecraft",
     "space probe",
-    "space probe",
     "rover",
     "rovers",
     "satellite",
@@ -115,13 +118,13 @@ SPACE_KEYWORDS = [
     "launch",
     "space launch",
 
-    # Космические миссии
+    # Космические миссии / организации
     "nasa",
     "esa",
     "spacex",
     "artemis",
-    "mission",
     "space mission",
+    "mission",
 
     # Космическая физика
     "gravitational wave",
@@ -148,19 +151,35 @@ SPACE_KEYWORDS = [
     "biosignature",
     "biosignatures",
     "technosignature",
+
+    # Другие астрономические понятия
+    "light-year",
+    "light years",
+    "light-year",
+    "orbit",
+    "orbital",
+    "constellation",
+    "eclipse",
+    "occultation",
+    "tidal locking",
+    "tidally locked",
 ]
 
 
 # ============================================================
-# СИЛЬНЫЕ КОСМИЧЕСКИЕ ТЕМЫ
+# ОСОБО ИНТЕРЕСНЫЕ ТЕМЫ
 # ============================================================
 
 HIGH_INTEREST_KEYWORDS = [
     "black hole",
+    "black holes",
     "supernova",
     "neutron star",
     "exoplanet",
+    "exoplanets",
+    "protoplanet",
     "alien",
+    "aliens",
     "extraterrestrial",
     "life on mars",
     "habitable planet",
@@ -169,27 +188,51 @@ HIGH_INTEREST_KEYWORDS = [
     "dark matter",
     "dark energy",
     "asteroid",
+    "asteroids",
     "comet",
+    "comets",
     "solar storm",
     "solar flare",
     "coronal mass ejection",
     "james webb",
     "jwst",
     "hubble",
-    "supermassive",
+    "supermassive black hole",
     "early universe",
     "ancient light",
     "cosmic microwave background",
     "lunar occultation",
+    "eclipse",
 ]
 
 
 # ============================================================
-# ТОЧНЫЕ ИСКЛЮЧЕНИЯ
+# ИСКЛЮЧЕНИЯ
+#
+# ВАЖНО:
+# Эти слова теперь НЕ используются одинаково
+# для title и description.
+#
+# Сильное исключение в TITLE = статья отклоняется.
+# Исключение только в DESCRIPTION = статья не
+# отклоняется автоматически.
 # ============================================================
 
-EXCLUDE_KEYWORDS = [
-    # Медицина
+STRONG_TITLE_EXCLUSIONS = [
+    "fusion reactor",
+    "fusion plasma",
+    "nuclear reactor",
+    "nuclear power plant",
+    "tokamak",
+    "stellarator",
+    "plasma reactor",
+    "reactor experiment",
+]
+
+
+# Обычные нежелательные темы.
+# Они учитываются только как небольшой штраф.
+DESCRIPTION_EXCLUSIONS = [
     "dementia",
     "diabetes",
     "cancer",
@@ -204,70 +247,37 @@ EXCLUDE_KEYWORDS = [
     "hospital",
     "patient",
     "disease",
-
-    # Биология / человек
     "human brain",
     "mini-brains",
-    "primate",
     "primate communication",
-    "human communication",
     "psychology",
-
-    # Еда
     "eating alone",
     "food",
     "diet",
     "nutrition",
-
-    # Явно земные технологии
     "smartphone",
     "iphone",
     "android",
     "computer",
     "laptop",
-
-    # Ядерная / термоядерная энергетика
-    "fusion reactor",
-    "fusion plasma",
-    "nuclear reactor",
-    "nuclear power plant",
-    "tokamak",
-    "stellarator",
-    "reactor",
-
-    # Прочая земная физика
-    "laboratory experiment",
-    "lab experiment",
-]
-
-
-# ============================================================
-# НЕЖЕЛАТЕЛЬНЫЕ СЛОВА
-# ============================================================
-
-BORING_KEYWORDS = [
     "politics",
     "election",
     "business",
     "advertisement",
     "shopping",
     "product review",
-    "phone review",
 ]
 
 
 # ============================================================
-# ПОИСК СЛОВА БЕЗ ЛОЖНЫХ СОВПАДЕНИЙ
+# ПОИСК КЛЮЧЕВОГО СЛОВА
 # ============================================================
 
-def keyword_in_text(keyword: str, text: str) -> bool:
-    """
-    Проверяет ключевое слово как отдельное слово/фразу.
+def keyword_in_text(
+    keyword: str,
+    text: str,
+) -> bool:
 
-    Например:
-    star -> найдёт "star"
-    но не найдёт "starting"
-    """
     keyword = keyword.lower().strip()
     text = text.lower()
 
@@ -284,7 +294,97 @@ def keyword_in_text(keyword: str, text: str) -> bool:
 
 
 # ============================================================
-# ОЦЕНКА РЕЛЕВАНТНОСТИ
+# НАЙТИ СОВПАДЕНИЯ
+# ============================================================
+
+def find_keywords(
+    keywords: List[str],
+    text: str,
+) -> List[str]:
+
+    return [
+        keyword
+        for keyword in keywords
+        if keyword_in_text(keyword, text)
+    ]
+
+
+# ============================================================
+# ОЦЕНКА ЗАГОЛОВКА
+#
+# ЗАГОЛОВОК ИМЕЕТ ОСНОВНОЙ ВЕС
+# ============================================================
+
+def calculate_title_score(
+    title: str,
+) -> int:
+
+    score = 0
+
+    matched_space = find_keywords(
+        SPACE_KEYWORDS,
+        title,
+    )
+
+    matched_high = find_keywords(
+        HIGH_INTEREST_KEYWORDS,
+        title,
+    )
+
+    # Каждое космическое слово в заголовке
+    # имеет хороший вес.
+    score += len(matched_space) * 3
+
+    # Сильные темы получают дополнительный вес.
+    score += len(matched_high) * 5
+
+    return score
+
+
+# ============================================================
+# ОЦЕНКА ОПИСАНИЯ
+#
+# DESCRIPTION — ТОЛЬКО ДОПОЛНИТЕЛЬНЫЙ СИГНАЛ
+# ============================================================
+
+def calculate_description_score(
+    summary: str,
+) -> int:
+
+    if not summary:
+        return 0
+
+    matched_space = find_keywords(
+        SPACE_KEYWORDS,
+        summary,
+    )
+
+    matched_high = find_keywords(
+        HIGH_INTEREST_KEYWORDS,
+        summary,
+    )
+
+    matched_exclusions = find_keywords(
+        DESCRIPTION_EXCLUSIONS,
+        summary,
+    )
+
+    # Космические слова в описании имеют
+    # значительно меньший вес.
+    score = len(matched_space)
+
+    # Сильная космическая тема немного повышает рейтинг.
+    score += len(matched_high) * 2
+
+    # Обычные медицинские/земные слова дают
+    # небольшой штраф, но НЕ убивают статью.
+    score -= len(matched_exclusions)
+
+    return score
+
+
+# ============================================================
+# ОБЩАЯ ОЦЕНКА
 # ============================================================
 
 def calculate_relevance_score(
@@ -292,35 +392,19 @@ def calculate_relevance_score(
     summary: str = "",
 ) -> int:
 
-    text = f"{title} {summary}".lower()
+    title_score = calculate_title_score(
+        title
+    )
 
-    score = 0
+    description_score = calculate_description_score(
+        summary
+    )
 
-    # Сильные темы
-    for keyword in HIGH_INTEREST_KEYWORDS:
-        if keyword_in_text(keyword, text):
-            score += 5
-
-    # Общие космические слова
-    for keyword in SPACE_KEYWORDS:
-        if keyword_in_text(keyword, text):
-            score += 2
-
-    # Исключения
-    for keyword in EXCLUDE_KEYWORDS:
-        if keyword_in_text(keyword, text):
-            score -= 8
-
-    # Скучные темы
-    for keyword in BORING_KEYWORDS:
-        if keyword_in_text(keyword, text):
-            score -= 5
-
-    return score
+    return title_score + description_score
 
 
 # ============================================================
-# ПРОВЕРКА: КОСМОС ЛИ ЭТО?
+# ПРОВЕРКА КОСМИЧЕСКОЙ НОВОСТИ
 # ============================================================
 
 def is_space_article(
@@ -328,64 +412,139 @@ def is_space_article(
     summary: str = "",
 ) -> bool:
 
-    text = f"{title} {summary}".lower()
-
-    matched_space = [
-        keyword
-        for keyword in SPACE_KEYWORDS
-        if keyword_in_text(keyword, text)
-    ]
-
-    matched_exclude = [
-        keyword
-        for keyword in EXCLUDE_KEYWORDS
-        if keyword_in_text(keyword, text)
-    ]
-
-    score = calculate_relevance_score(title, summary)
+    title = title.strip()
+    summary = summary.strip()
 
     # --------------------------------------------------------
-    # Если найдено явно земное исключение,
-    # отбрасываем новость, если одновременно нет
-    # сильного космического контекста.
+    # 1. СНАЧАЛА ПРОВЕРЯЕМ ЗАГОЛОВОК
     # --------------------------------------------------------
 
-    if matched_exclude:
-        strong_space = any(
-            keyword_in_text(keyword, text)
-            for keyword in HIGH_INTEREST_KEYWORDS
-        )
-
-        # Например:
-        # "Fusion Reactor" + "plasma"
-        # => не космос
-        if not strong_space:
-            print(
-                f"      ❌ Исключение: {matched_exclude}"
-            )
-            return False
-
-    # Без единого космического слова новость не принимаем.
-    if not matched_space:
-        return False
-
-    # Слишком низкий результат
-    if score < 2:
-        return False
-
-    print(
-        f"      ✓ Космос: score={score}, "
-        f"keywords={matched_space[:8]}"
+    title_space = find_keywords(
+        SPACE_KEYWORDS,
+        title,
     )
 
-    return True
+    title_high = find_keywords(
+        HIGH_INTEREST_KEYWORDS,
+        title,
+    )
+
+    title_exclusions = find_keywords(
+        STRONG_TITLE_EXCLUSIONS,
+        title,
+    )
+
+    title_score = calculate_title_score(
+        title
+    )
+
+    # --------------------------------------------------------
+    # 2. СИЛЬНОЕ ИСКЛЮЧЕНИЕ В САМОМ ЗАГОЛОВКЕ
+    #
+    # Например:
+    # "Fusion Reactor..."
+    #
+    # Такое отклоняем сразу.
+    # --------------------------------------------------------
+
+    if title_exclusions:
+
+        print(
+            f"      ❌ Исключение в заголовке: "
+            f"{title_exclusions}"
+        )
+
+        return False
+
+    # --------------------------------------------------------
+    # 3. ЕСЛИ ЗАГОЛОВОК ЯВНО КОСМИЧЕСКИЙ
+    #
+    # Описание больше не может его случайно убить.
+    # --------------------------------------------------------
+
+    if title_high:
+
+        print(
+            f"      ✓ Космический заголовок: "
+            f"score={title_score}, "
+            f"keywords={title_space}"
+        )
+
+        return True
+
+    if title_space:
+
+        print(
+            f"      ✓ Космос в заголовке: "
+            f"score={title_score}, "
+            f"keywords={title_space}"
+        )
+
+        return True
+
+    # --------------------------------------------------------
+    # 4. ЕСЛИ В ЗАГОЛОВКЕ НЕТ КОСМОСА,
+    # СМОТРИМ ОПИСАНИЕ.
+    #
+    # Но здесь требования строже.
+    # --------------------------------------------------------
+
+    description_space = find_keywords(
+        SPACE_KEYWORDS,
+        summary,
+    )
+
+    description_high = find_keywords(
+        HIGH_INTEREST_KEYWORDS,
+        summary,
+    )
+
+    description_exclusions = find_keywords(
+        DESCRIPTION_EXCLUSIONS,
+        summary,
+    )
+
+    description_score = calculate_description_score(
+        summary
+    )
+
+    # Если в описании есть сильная космическая тема,
+    # допускаем статью.
+    if description_high:
+
+        print(
+            f"      ✓ Космический контекст "
+            f"в описании: "
+            f"score={description_score}, "
+            f"keywords={description_high}"
+        )
+
+        return True
+
+    # Несколько обычных космических слов
+    # тоже могут подтвердить статью.
+    if len(description_space) >= 2:
+
+        print(
+            f"      ✓ Космос найден в описании: "
+            f"score={description_score}, "
+            f"keywords={description_space[:8]}"
+        )
+
+        return True
+
+    # Иначе отклоняем.
+    return False
 
 
 # ============================================================
-# ПОЛУЧЕНИЕ RSS
+# PARSE RSS
 # ============================================================
 
-def parse_feed(source: str, url: str) -> List[Dict]:
+def parse_feed(
+    source: str,
+    url: str,
+) -> List[Dict]:
 
     print()
     print("=" * 70)
@@ -393,46 +552,101 @@ def parse_feed(source: str, url: str) -> List[Dict]:
     print("=" * 70)
 
     try:
-        feed = feedparser.parse(url)
+
+        feed = feedparser.parse(
+            url
+        )
+
     except Exception as error:
-        print(f"❌ Ошибка RSS: {error}")
+
+        print(
+            f"❌ Ошибка RSS: {error}"
+        )
+
         return []
 
-    if getattr(feed, "bozo", False):
-        print("⚠ RSS вернул предупреждение.")
+    if getattr(
+        feed,
+        "bozo",
+        False,
+    ):
 
-    entries = getattr(feed, "entries", [])
+        print(
+            "⚠ RSS вернул предупреждение."
+        )
+
+    entries = getattr(
+        feed,
+        "entries",
+        [],
+    )
 
     if not entries:
-        print("⚠ Новостей не найдено.")
+
+        print(
+            "⚠ Новостей не найдено."
+        )
+
         return []
 
     results = []
 
     for entry in entries[:20]:
 
-        title = entry.get("title", "").strip()
-        link = entry.get("link", "").strip()
+        title = (
+            entry.get(
+                "title",
+                "",
+            )
+            .strip()
+        )
+
+        link = (
+            entry.get(
+                "link",
+                "",
+            )
+            .strip()
+        )
 
         summary = (
-            entry.get("summary")
-            or entry.get("description")
+            entry.get(
+                "summary"
+            )
+            or entry.get(
+                "description"
+            )
             or ""
         )
 
         published = (
-            entry.get("published")
-            or entry.get("updated")
+            entry.get(
+                "published"
+            )
+            or entry.get(
+                "updated"
+            )
             or ""
         )
 
         if not title or not link:
             continue
 
+        # ----------------------------------------------------
         # Проверяем БД
+        # ----------------------------------------------------
+
         if article_exists(link):
-            print(f"  ⏭ Уже есть: {title}")
+
+            print(
+                f"  ⏭ Уже есть: {title}"
+            )
+
             continue
+
+        # ----------------------------------------------------
+        # Считаем рейтинг
+        # ----------------------------------------------------
 
         score = calculate_relevance_score(
             title,
@@ -440,14 +654,32 @@ def parse_feed(source: str, url: str) -> List[Dict]:
         )
 
         print()
-        print(f"  📰 {title}")
-        print(f"     score={score}")
+        print(
+            f"  📰 {title}"
+        )
 
-        if not is_space_article(title, summary):
-            print("     ❌ Отклонено")
+        print(
+            f"     score={score}"
+        )
+
+        # ----------------------------------------------------
+        # Проверяем релевантность
+        # ----------------------------------------------------
+
+        if not is_space_article(
+            title,
+            summary,
+        ):
+
+            print(
+                "     ❌ Отклонено"
+            )
+
             continue
 
-        print("     ✅ Принято")
+        print(
+            "     ✅ Принято"
+        )
 
         results.append(
             {
@@ -464,22 +696,26 @@ def parse_feed(source: str, url: str) -> List[Dict]:
             break
 
     print()
-    print(f"📊 Принято: {len(results)}")
+    print(
+        f"📊 Принято: {len(results)}"
+    )
 
     return results
 
 
 # ============================================================
-# СБОР НОВОСТЕЙ ИЗ ВСЕХ ИСТОЧНИКОВ
+# СБОР НОВОСТЕЙ
 # ============================================================
 
 def collect_news(
-    feeds: Dict[str, str] = None,
+    feeds: Optional[Dict[str, str]] = None,
     max_articles_per_source: int = 5,
 ) -> List[Dict]:
 
     if feeds is None:
+
         from app.config import RSS_FEEDS
+
         feeds = RSS_FEEDS
 
     all_articles = []
@@ -491,25 +727,38 @@ def collect_news(
             url,
         )
 
-        articles = articles[:max_articles_per_source]
+        articles = articles[
+            :max_articles_per_source
+        ]
 
-        all_articles.extend(articles)
+        all_articles.extend(
+            articles
+        )
 
-    # Сначала самые интересные
+    # --------------------------------------------------------
+    # Сортировка по интересности
+    # --------------------------------------------------------
+
     all_articles.sort(
-        key=lambda article: article.get("score", 0),
+        key=lambda article: article.get(
+            "score",
+            0,
+        ),
         reverse=True,
     )
 
     print()
     print("=" * 70)
-    print("🏆 ИТОГОВЫЙ РЕЙТИНГ НОВОСТЕЙ")
+    print(
+        "🏆 ИТОГОВЫЙ РЕЙТИНГ НОВОСТЕЙ"
+    )
     print("=" * 70)
 
     for index, article in enumerate(
         all_articles,
         start=1,
     ):
+
         print(
             f"{index}. "
             f"[{article['score']}] "
@@ -533,4 +782,7 @@ if __name__ == "__main__":
     )
 
     print()
-    print(f"Всего найдено: {len(articles)}")
+    print(
+        f"Всего найдено: {len(articles)}"
+    )
+```
