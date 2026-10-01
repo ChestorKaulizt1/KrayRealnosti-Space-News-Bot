@@ -2,64 +2,11 @@ name: Space News Collector
 
 on:
 workflow_dispatch:
-schedule:
-- cron: "17 * * * *"
 
 jobs:
-collect-news:
+test:
 runs-on: ubuntu-24.04
 
-```
 steps:
-  - name: Checkout repository
-    uses: actions/checkout@v4
-
-  - name: Setup Python
-    uses: actions/setup-python@v5
-    with:
-      python-version: "3.12"
-
-  - name: Install dependencies
-    run: |
-      python -m pip install --upgrade pip
-      pip install -r requirements.txt
-
-  - name: Create AI generator
-    shell: bash
-    run: |
-      cat > app/ai_generator.py <<'PYTHON'
-      import os
-
-      OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-
-
-      def check_configuration() -> bool:
-          if not OPENROUTER_API_KEY:
-              print("OPENROUTER_API_KEY not found")
-              return False
-
-          print("OPENROUTER_API_KEY found")
-          return True
-
-
-      def generate_post(article_title: str, article_text: str):
-          print("AI Generator started")
-          print(f"Title: {article_title}")
-
-          if not check_configuration():
-              return None
-
-          return None
-      PYTHON
-
-  - name: Check AI generator syntax
-    run: |
-      python -m py_compile app/ai_generator.py
-      echo "Python syntax OK"
-
-  - name: Run news collector
-    env:
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-    run: |
-      python -m app.main
-```
+  - name: Test GitHub Actions
+    run: echo "GitHub Actions WORKS"
