@@ -5,10 +5,12 @@ import time
 from openai import OpenAI
 
 
+# ============================================================
+# CONFIG
+# ============================================================
+
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-
 MODEL = "qwen/qwen3.8-27b:free"
-
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
 
 MAX_RETRIES = 2
@@ -17,6 +19,10 @@ RETRY_DELAY = 5
 MIN_POST_LENGTH = 300
 MAX_ARTICLE_LENGTH = 18000
 
+
+# ============================================================
+# CLIENT
+# ============================================================
 
 client = None
 
@@ -27,45 +33,48 @@ if OPENROUTER_API_KEY:
         timeout=60.0,
         max_retries=0,
     )
-else:
-client = None
+
+
+# ============================================================
+# SYSTEM PROMPT
+# ============================================================
 
 SYSTEM_PROMPT = """
 Ты — профессиональный редактор русскоязычного Telegram-канала
 «КРАЙ РЕАЛЬНОСТИ» о космосе, астрономии и необычных научных открытиях.
 
-Твоя задача — превратить предоставленную научную статью в готовый
-интересный пост для Telegram.
+Твоя задача — превратить предоставленную научную статью
+в интересный готовый пост для Telegram.
 
 СТРОГО СОБЛЮДАЙ ПРАВИЛА:
 
-1. Пиши ТОЛЬКО на русском языке.
+1. Пиши только на русском языке.
 
-2. Не показывай свои рассуждения, анализ, внутренние инструкции,
-   цепочку мыслей или процесс генерации.
+2. Не показывай рассуждения, внутренний анализ,
+цепочку мыслей или процесс генерации.
 
-3. Не используй слова и конструкции:
-   «Вот готовый пост»,
-   «Готовый Telegram-пост»,
-   «Давайте разберём»,
-   «Я проанализировал»,
-   «моя задача»,
-   «финальный вариант»,
-   «reasoning»,
-   «thinking»,
-   «analysis»,
-   «step by step».
+3. Не используй служебные фразы:
+«Вот готовый пост»,
+«Готовый Telegram-пост»,
+«Давайте разберём»,
+«Я проанализировал»,
+«Моя задача»,
+«Финальный вариант»,
+«Reasoning»,
+«Thinking»,
+«Analysis»,
+«Step by step».
 
 4. Не придумывай факты, цифры, даты, названия объектов,
-   результаты исследований или выводы, которых нет в статье.
+результаты исследований или выводы, которых нет в статье.
 
-5. Если статья говорит о предположении, гипотезе или возможном
-   объяснении — обязательно сохраняй эту неопределённость.
+5. Если статья описывает гипотезу, предположение или возможное
+объяснение — сохраняй эту неопределённость.
 
 6. Не превращай гипотезу в доказанный факт.
 
-7. Не используй сенсационные утверждения, если статья их
-   не подтверждает.
+7. Не используй сенсационные утверждения,
+если статья их не подтверждает.
 
 8. Не добавляй ссылки.
 
@@ -75,288 +84,331 @@ SYSTEM_PROMPT = """
 
 11. Не добавляй рекламу.
 
-12. Текст должен выглядеть как нормальная публикация
-    русскоязычного научно-популярного Telegram-канала.
+12. Начни с короткого интересного заголовка.
 
-13. Начни пост с короткого интересного заголовка.
+13. После заголовка сделай 4–6 содержательных абзацев.
 
-14. После заголовка сделай 4–6 содержательных абзацев.
+14. Используй конкретные факты из статьи.
 
-15. Используй конкретные факты из статьи.
+15. Не повторяй одну и ту же мысль несколько раз.
 
-16. Если речь идёт о чёрной дыре, не используй буквальный
-    перевод английского выражения "black hole hair" как
-    «волосы чёрной дыры».
+16. Не начинай с банальной фразы:
+«Учёные сделали новое открытие в космосе».
 
-17. Не повторяй одну и ту же мысль разными словами.
+17. Если материал необычный, объясни,
+что именно делает его необычным.
 
-18. Не начинай текст с банального:
-    «Учёные сделали новое открытие в космосе».
+18. Не добавляй информацию из собственных знаний,
+если её нет в предоставленной статье.
 
-19. Если материал действительно интересный или необычный,
-    сделай акцент на том, что именно делает его необычным.
+19. Если речь идёт о чёрной дыре, не переводи
+"black hole hair" буквально как «волосы чёрной дыры».
 
-20. Не добавляй информацию из своих знаний, если её нет
-    в предоставленной статье.
-
-Верни только готовый текст Telegram-поста.
+20. Верни только готовый текст Telegram-поста.
 """
+
+
+# ============================================================
+# BAD PATTERNS
+# ============================================================
 
 BAD_PATTERNS = [
-"вот готовый",
-"готовый telegram-пост",
-"готовый телеграм-пост",
-"готовый пост",
-"давайте разбер",
-"давайте рассмотр",
-"я проанализировал",
-"я проанализирую",
-"моя задача",
-"финальный вариант",
-"финальный обзор",
+    "вот готовый",
+    "готовый telegram-пост",
+    "готовый телеграм-пост",
+    "готовый пост",
+    "давайте разбер",
+    "давайте рассмотр",
+    "я проанализировал",
+    "я проанализирую",
+    "моя задача",
+    "финальный вариант",
+    "финальный обзор",
 
-```
-"thinking",
-"reasoning",
-"analysis",
-"step by step",
-"let me",
-"i need to",
-"i will",
-"final answer",
-"here is",
-"here's",
+    "thinking",
+    "reasoning",
+    "analysis",
+    "step by step",
+    "let me",
+    "i need to",
+    "i will",
+    "final answer",
+    "here is",
+    "here's",
 
-"волосы чёрной дыры",
-"волосы черной дыры",
-"волосатые чёрные дыры",
-"волосатые черные дыры",
-```
-
+    "волосы чёрной дыры",
+    "волосы черной дыры",
+    "волосатые чёрные дыры",
+    "волосатые черные дыры",
 ]
 
-def check_configuration() -> bool:
-if not OPENROUTER_API_KEY:
-print("❌ Не найден OPENROUTER_API_KEY.")
-print("   Добавь его в GitHub Secrets.")
-return False
 
-```
-if client is None:
-    print("❌ OpenRouter client не создан.")
+# ============================================================
+# CONFIG CHECK
+# ============================================================
+
+def check_configuration():
+    if not OPENROUTER_API_KEY:
+        print("❌ OPENROUTER_API_KEY не найден.")
+        print("   Проверь GitHub Secrets.")
+        return False
+
+    if client is None:
+        print("❌ OpenRouter client не создан.")
+        return False
+
+    return True
+
+
+# ============================================================
+# ERROR TEXT
+# ============================================================
+
+def get_error_text(error):
+    try:
+        return str(error).lower()
+    except Exception:
+        return repr(error).lower()
+
+
+# ============================================================
+# DAILY FREE LIMIT
+# ============================================================
+
+def is_daily_free_limit_error(error):
+    """
+    Определяет именно дневной лимит бесплатных моделей OpenRouter.
+
+    Если этот лимит достигнут, повторять запрос бессмысленно.
+    """
+
+    error_text = get_error_text(error)
+
+    patterns = [
+        "free-models-per-day",
+        "free models per day",
+        "free-models",
+        "daily free",
+        "daily limit",
+        "free tier daily",
+        "limit_source: openrouter_free_tier_daily",
+        "openrouter_free_tier_daily",
+        "add 10 credits to unlock",
+    ]
+
+    for pattern in patterns:
+        if pattern in error_text:
+            return True
+
     return False
 
-return True
-```
 
-def get_error_text(error: Exception) -> str:
-try:
-return str(error).lower()
-except Exception:
-return repr(error).lower()
+# ============================================================
+# NORMAL 429
+# ============================================================
 
-def is_daily_free_limit_error(error: Exception) -> bool:
-"""
-Определяет именно дневной лимит бесплатных моделей OpenRouter.
+def is_rate_limit_error(error):
+    """
+    Определяет временный HTTP 429.
 
-```
-Такой запрос НЕ нужно повторять.
-"""
+    Дневной free-limit здесь исключается.
+    """
 
-error_text = get_error_text(error)
+    if is_daily_free_limit_error(error):
+        return False
 
-daily_limit_patterns = [
-    "free-models-per-day",
-    "free models per day",
-    "free-models-per-day",
-    "free-models",
-    "daily free",
-    "daily limit",
-    "free tier daily",
-    "limit_source: openrouter_free_tier_daily",
-    "openrouter_free_tier_daily",
-    "add 10 credits to unlock",
-]
+    error_text = get_error_text(error)
 
-return any(
-    pattern in error_text
-    for pattern in daily_limit_patterns
-)
-```
+    patterns = [
+        "429",
+        "rate limit",
+        "too many requests",
+    ]
 
-def is_rate_limit_error(error: Exception) -> bool:
-"""
-Определяет обычный временный HTTP 429.
+    for pattern in patterns:
+        if pattern in error_text:
+            return True
 
-```
-Дневной лимит здесь специально исключается.
-"""
-
-if is_daily_free_limit_error(error):
     return False
 
-error_text = get_error_text(error)
 
-return (
-    "429" in error_text
-    or "rate limit" in error_text
-    or "too many requests" in error_text
-)
-```
+# ============================================================
+# TEMPORARY ERRORS
+# ============================================================
 
-def is_temporary_error(error: Exception) -> bool:
-"""
-Ошибки, которые потенциально могут исчезнуть сами.
-"""
+def is_temporary_error(error):
+    error_text = get_error_text(error)
 
-```
-error_text = get_error_text(error)
+    patterns = [
+        "502",
+        "503",
+        "504",
+        "bad gateway",
+        "service unavailable",
+        "gateway timeout",
+        "connection reset",
+        "connection aborted",
+        "temporarily unavailable",
+        "timeout",
+        "timed out",
+    ]
 
-temporary_patterns = [
-    "502",
-    "503",
-    "504",
-    "bad gateway",
-    "service unavailable",
-    "gateway timeout",
-    "connection reset",
-    "connection aborted",
-    "temporarily unavailable",
-    "timeout",
-    "timed out",
-]
+    for pattern in patterns:
+        if pattern in error_text:
+            return True
 
-return any(
-    pattern in error_text
-    for pattern in temporary_patterns
-)
-```
+    return False
 
-def clean_post(text: str) -> str:
-if not text:
-return ""
 
-````
-text = text.strip()
+# ============================================================
+# CLEAN POST
+# ============================================================
 
-prefixes = [
-    "Вот готовый Telegram-пост:",
-    "Вот готовый телеграм-пост:",
-    "Вот готовый пост:",
-    "Готовый Telegram-пост:",
-    "Готовый телеграм-пост:",
-    "Готовый пост:",
-    "Here is the Telegram post:",
-    "Here is the post:",
-]
-
-for prefix in prefixes:
-    if text.lower().startswith(prefix.lower()):
-        text = text[len(prefix):].strip()
-
-text = re.sub(
-    r"^```(?:text|markdown)?\s*",
-    "",
-    text,
-    flags=re.IGNORECASE,
-)
-
-text = re.sub(
-    r"\s*```$",
-    "",
-    text,
-)
-
-text = re.sub(r"[ \t]+", " ", text)
-text = re.sub(r"\n{3,}", "\n\n", text)
-
-return text.strip()
-````
-
-def validate_post(text: str) -> tuple[bool, str]:
-if not text:
-return False, "пустой ответ"
-
-```
-if len(text) < MIN_POST_LENGTH:
-    return (
-        False,
-        f"слишком короткий ответ: {len(text)} символов",
-    )
-
-lower_text = text.lower()
-
-for pattern in BAD_PATTERNS:
-    if pattern in lower_text:
-        return (
-            False,
-            f"обнаружена запрещённая фраза: {pattern}",
-        )
-
-if re.search(r"[\u4e00-\u9fff]", text):
-    return False, "обнаружены китайские символы"
-
-cyrillic_count = len(
-    re.findall(r"[А-Яа-яЁё]", text)
-)
-
-if cyrillic_count < 100:
-    return False, "слишком мало кириллицы"
-
-return True, "ok"
-```
-
-def extract_response_text(response) -> str:
-try:
-message = response.choices[0].message
-content = getattr(message, "content", None)
-
-```
-    if isinstance(content, str):
-        return content.strip()
-
-    if content is None:
+def clean_post(text):
+    if not text:
         return ""
 
-    return str(content).strip()
+    text = text.strip()
 
-except Exception as error:
-    print("⚠ Не удалось извлечь текст ответа модели:")
-    print(f"  {error}")
-    return ""
-```
+    prefixes = [
+        "Вот готовый Telegram-пост:",
+        "Вот готовый телеграм-пост:",
+        "Вот готовый пост:",
+        "Готовый Telegram-пост:",
+        "Готовый телеграм-пост:",
+        "Готовый пост:",
+        "Here is the Telegram post:",
+        "Here is the post:",
+    ]
 
-def generate_post(
-title: str,
-article_text: str,
-source: str = "",
-) -> str:
+    for prefix in prefixes:
+        if text.lower().startswith(prefix.lower()):
+            text = text[len(prefix):].strip()
 
-```
-if not check_configuration():
-    return ""
-
-if not title:
-    print("❌ Пустой заголовок статьи.")
-    return ""
-
-if not article_text:
-    print(f"❌ Пустой текст статьи: {title}")
-    return ""
-
-article_text = article_text.strip()
-
-if len(article_text) > MAX_ARTICLE_LENGTH:
-    article_text = article_text[:MAX_ARTICLE_LENGTH]
-
-    print(
-        f"ℹ Статья слишком большая. "
-        f"Обрезана до {MAX_ARTICLE_LENGTH} символов."
+    text = re.sub(
+        r"^```(?:text|markdown)?\s*",
+        "",
+        text,
+        flags=re.IGNORECASE,
     )
 
-user_prompt = f"""
-```
+    text = re.sub(
+        r"\s*```$",
+        "",
+        text,
+    )
 
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    return text.strip()
+
+
+# ============================================================
+# VALIDATE POST
+# ============================================================
+
+def validate_post(text):
+    if not text:
+        return False, "пустой ответ"
+
+    if len(text) < MIN_POST_LENGTH:
+        return (
+            False,
+            f"слишком короткий ответ: {len(text)} символов",
+        )
+
+    lower_text = text.lower()
+
+    for pattern in BAD_PATTERNS:
+        if pattern in lower_text:
+            return (
+                False,
+                f"обнаружена запрещённая фраза: {pattern}",
+            )
+
+    if re.search(r"[\u4e00-\u9fff]", text):
+        return False, "обнаружены китайские символы"
+
+    cyrillic_count = len(
+        re.findall(r"[А-Яа-яЁё]", text)
+    )
+
+    if cyrillic_count < 100:
+        return False, "слишком мало кириллицы"
+
+    return True, "ok"
+
+
+# ============================================================
+# EXTRACT RESPONSE
+# ============================================================
+
+def extract_response_text(response):
+    try:
+        message = response.choices[0].message
+
+        content = getattr(
+            message,
+            "content",
+            None,
+        )
+
+        if isinstance(content, str):
+            return content.strip()
+
+        if content is None:
+            return ""
+
+        return str(content).strip()
+
+    except Exception as error:
+        print("⚠ Не удалось извлечь ответ модели:")
+        print(f"   {error}")
+        return ""
+
+
+# ============================================================
+# GENERATE POST
+# ============================================================
+
+def generate_post(
+    title,
+    article_text,
+    source="",
+):
+    """
+    Генерирует готовый Telegram-пост.
+
+    Возвращает:
+        готовый текст поста
+        или пустую строку при ошибке
+    """
+
+    if not check_configuration():
+        return ""
+
+    if not title:
+        print("❌ Пустой заголовок статьи.")
+        return ""
+
+    if not article_text:
+        print(
+            f"❌ Пустой текст статьи: {title}"
+        )
+        return ""
+
+    article_text = article_text.strip()
+
+    if len(article_text) > MAX_ARTICLE_LENGTH:
+        article_text = article_text[:MAX_ARTICLE_LENGTH]
+
+        print(
+            f"ℹ Статья обрезана до "
+            f"{MAX_ARTICLE_LENGTH} символов."
+        )
+
+    user_prompt = f"""
 Заголовок статьи:
 {title}
 
@@ -373,147 +425,201 @@ user_prompt = f"""
 Верни только сам пост.
 """
 
-```
-for attempt in range(1, MAX_RETRIES + 2):
+    total_attempts = MAX_RETRIES + 1
 
-    print(
-        f"🤖 Генерация поста: попытка "
-        f"{attempt}/{MAX_RETRIES + 1}"
-    )
+    for attempt in range(1, total_attempts + 1):
 
-    try:
-
-        response = client.chat.completions.create(
-            model=MODEL,
-
-            messages=[
-                {
-                    "role": "system",
-                    "content": SYSTEM_PROMPT,
-                },
-                {
-                    "role": "user",
-                    "content": user_prompt,
-                },
-            ],
-
-            temperature=0.2,
-            max_tokens=1400,
-
-            extra_body={
-                "reasoning": {
-                    "enabled": False,
-                    "exclude": True,
-                }
-            },
+        print(
+            f"🤖 Генерация поста: "
+            f"попытка {attempt}/{total_attempts}"
         )
 
-    except Exception as error:
+        try:
 
-        if is_daily_free_limit_error(error):
+            response = client.chat.completions.create(
+                model=MODEL,
 
-            print()
-            print(
-                "🛑 OPENROUTER: ДОСТИГНУТ ДНЕВНОЙ "
-                "ЛИМИТ БЕСПЛАТНЫХ МОДЕЛЕЙ."
+                messages=[
+                    {
+                        "role": "system",
+                        "content": SYSTEM_PROMPT,
+                    },
+                    {
+                        "role": "user",
+                        "content": user_prompt,
+                    },
+                ],
+
+                temperature=0.2,
+                max_tokens=1400,
+
+                extra_body={
+                    "reasoning": {
+                        "enabled": False,
+                        "exclude": True,
+                    }
+                },
             )
-            print(
-                "🚫 Повторные запросы отключены."
-            )
-            print(
-                "⏳ Нужно дождаться сброса лимита."
-            )
-            print()
 
-            return ""
+        except Exception as error:
 
-        if is_rate_limit_error(error):
+            # ------------------------------------------------
+            # DAILY FREE LIMIT
+            # ------------------------------------------------
 
-            if attempt > MAX_RETRIES:
+            if is_daily_free_limit_error(error):
+
+                print()
                 print(
-                    "❌ Временный HTTP 429 "
-                    "повторился несколько раз."
+                    "🛑 OPENROUTER: ДОСТИГНУТ "
+                    "ДНЕВНОЙ ЛИМИТ БЕСПЛАТНЫХ МОДЕЛЕЙ."
                 )
+                print(
+                    "🚫 Повторные запросы НЕ выполняются."
+                )
+                print(
+                    "⏳ Нужно дождаться сброса лимита."
+                )
+                print()
+
                 return ""
 
-            print(
-                "⚠ Получен временный HTTP 429."
-            )
-            print(
-                f"⏳ Повтор через {RETRY_DELAY} сек."
-            )
+            # ------------------------------------------------
+            # TEMPORARY 429
+            # ------------------------------------------------
 
-            time.sleep(RETRY_DELAY)
-            continue
+            if is_rate_limit_error(error):
 
-        if is_temporary_error(error):
+                if attempt >= total_attempts:
+                    print(
+                        "❌ Временный HTTP 429 "
+                        "не исчез после повторов."
+                    )
+                    return ""
 
-            if attempt > MAX_RETRIES:
                 print(
-                    "❌ Временная ошибка "
-                    "не исчезла после повторов."
+                    "⚠ Получен временный HTTP 429."
                 )
-                return ""
+
+                print(
+                    f"⏳ Повтор через "
+                    f"{RETRY_DELAY} секунд."
+                )
+
+                time.sleep(RETRY_DELAY)
+
+                continue
+
+            # ------------------------------------------------
+            # 502 / 503 / 504 / TIMEOUT
+            # ------------------------------------------------
+
+            if is_temporary_error(error):
+
+                if attempt >= total_attempts:
+                    print(
+                        "❌ Временная ошибка "
+                        "не исчезла после повторов."
+                    )
+                    return ""
+
+                print(
+                    "⚠ Временная ошибка OpenRouter:"
+                )
+
+                print(
+                    f"   {error}"
+                )
+
+                print(
+                    f"⏳ Повтор через "
+                    f"{RETRY_DELAY} секунд."
+                )
+
+                time.sleep(RETRY_DELAY)
+
+                continue
+
+            # ------------------------------------------------
+            # OTHER ERROR
+            # ------------------------------------------------
 
             print(
-                "⚠ Временная ошибка OpenRouter:"
+                "❌ Ошибка OpenRouter:"
             )
+
             print(
                 f"   {error}"
             )
+
+            return ""
+
+        # ----------------------------------------------------
+        # EXTRACT RESPONSE
+        # ----------------------------------------------------
+
+        post = extract_response_text(response)
+
+        if not post:
+
             print(
-                f"⏳ Повтор через {RETRY_DELAY} сек."
+                "⚠ Модель вернула пустой ответ."
+            )
+
+            if attempt < total_attempts:
+
+                print(
+                    f"⏳ Повтор через "
+                    f"{RETRY_DELAY} секунд."
+                )
+
+                time.sleep(RETRY_DELAY)
+
+                continue
+
+            return ""
+
+        # ----------------------------------------------------
+        # CLEAN
+        # ----------------------------------------------------
+
+        post = clean_post(post)
+
+        # ----------------------------------------------------
+        # VALIDATE
+        # ----------------------------------------------------
+
+        valid, reason = validate_post(post)
+
+        if valid:
+
+            print(
+                f"✅ Пост успешно создан: "
+                f"{len(post)} символов"
+            )
+
+            return post
+
+        print(
+            f"⚠ Ответ модели отклонён: {reason}"
+        )
+
+        if attempt < total_attempts:
+
+            print(
+                f"⏳ Повтор генерации через "
+                f"{RETRY_DELAY} секунд."
             )
 
             time.sleep(RETRY_DELAY)
+
             continue
 
-        print("❌ Ошибка OpenRouter:")
-        print(f"   {error}")
+        print(
+            "❌ Не удалось получить "
+            "корректный пост."
+        )
 
         return ""
-
-    post = extract_response_text(response)
-
-    if not post:
-        print("⚠ Модель вернула пустой ответ.")
-
-        if attempt <= MAX_RETRIES:
-            print(
-                f"⏳ Повтор через {RETRY_DELAY} сек."
-            )
-            time.sleep(RETRY_DELAY)
-            continue
-
-        return ""
-
-    post = clean_post(post)
-
-    valid, reason = validate_post(post)
-
-    if valid:
-        print(
-            f"✅ Пост успешно создан: "
-            f"{len(post)} символов"
-        )
-        return post
-
-    print(
-        f"⚠ Ответ модели отклонён: {reason}"
-    )
-
-    if attempt <= MAX_RETRIES:
-        print(
-            f"⏳ Повтор генерации через "
-            f"{RETRY_DELAY} сек."
-        )
-        time.sleep(RETRY_DELAY)
-        continue
-
-    print(
-        "❌ Не удалось получить корректный пост."
-    )
 
     return ""
-
-return ""
