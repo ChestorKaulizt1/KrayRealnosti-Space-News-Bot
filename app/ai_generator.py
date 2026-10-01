@@ -122,9 +122,7 @@ message = str(error)
 if message:
     parts.append(message)
 
-result = " | ".join(parts)
-
-return result[:3000]
+return " | ".join(parts)[:3000]
 ```
 
 def get_retry_after(error) -> Optional[int]:
@@ -222,17 +220,9 @@ for prefix in prefixes:
     if text.lower().startswith(prefix.lower()):
         text = text[len(prefix):].strip()
 
-text = re.sub(
-    r"[ \t]+",
-    " ",
-    text,
-)
+text = re.sub(r"[ \t]+", " ", text)
 
-text = re.sub(
-    r"\n{3,}",
-    "\n\n",
-    text,
-)
+text = re.sub(r"\n{3,}", "\n\n", text)
 
 return text.strip()
 ````
@@ -244,15 +234,13 @@ return False
 ```
 if len(text) < MIN_POST_LENGTH:
     print(
-        f"⚠ Пост слишком короткий: "
-        f"{len(text)} символов."
+        f"⚠ Пост слишком короткий: {len(text)} символов."
     )
     return False
 
 if len(text) > 6000:
     print(
-        f"⚠ Пост слишком длинный: "
-        f"{len(text)} символов."
+        f"⚠ Пост слишком длинный: {len(text)} символов."
     )
     return False
 
@@ -261,8 +249,7 @@ lower_text = text.lower()
 for pattern in BAD_PATTERNS:
     if pattern in lower_text:
         print(
-            f"⚠ Найдена запрещённая фраза: "
-            f"{pattern}"
+            f"⚠ Найдена запрещённая фраза: {pattern}"
         )
         return False
 
@@ -332,9 +319,7 @@ prompt = build_prompt(
 
 for attempt in range(MAX_RETRIES + 1):
 
-    print(
-        f"🤖 Модель: {model}"
-    )
+    print(f"🤖 Модель: {model}")
 
     print(
         f"   Попытка "
@@ -365,20 +350,15 @@ for attempt in range(MAX_RETRIES + 1):
         text = clean_post(text)
 
         if not text:
-            print(
-                "⚠ Получен пустой ответ."
-            )
+            print("⚠ Получен пустой ответ.")
             return None
 
         if not validate_post(text):
-            print(
-                "⚠ Пост не прошёл проверку."
-            )
+            print("⚠ Пост не прошёл проверку.")
             return None
 
         print(
-            f"✓ Пост создан: "
-            f"{len(text)} символов."
+            f"✓ Пост создан: {len(text)} символов."
         )
 
         return text
@@ -388,8 +368,7 @@ for attempt in range(MAX_RETRIES + 1):
         status = get_status_code(error)
 
         print(
-            f"⚠ Ошибка: "
-            f"HTTP {status or '?'}"
+            f"⚠ Ошибка: HTTP {status or '?'}"
         )
 
         print(
@@ -399,8 +378,7 @@ for attempt in range(MAX_RETRIES + 1):
         if is_daily_limit_error(error):
 
             print(
-                "➡ Достигнут дневной "
-                "лимит модели."
+                "➡ Достигнут дневной лимит модели."
             )
 
             return None
@@ -409,23 +387,15 @@ for attempt in range(MAX_RETRIES + 1):
 
             if attempt < MAX_RETRIES:
 
-                retry_after = get_retry_after(
-                    error
-                )
+                retry_after = get_retry_after(error)
 
                 if retry_after:
-                    delay = min(
-                        retry_after,
-                        120,
-                    )
+                    delay = min(retry_after, 120)
                 else:
-                    delay = RETRY_DELAYS[
-                        attempt
-                    ]
+                    delay = RETRY_DELAYS[attempt]
 
                 print(
-                    f"⏳ Повтор через "
-                    f"{delay} сек."
+                    f"⏳ Повтор через {delay} сек."
                 )
 
                 time.sleep(delay)
@@ -458,22 +428,17 @@ if not check_configuration():
     return None
 
 if not article_title:
-    print(
-        "❌ Пустой заголовок."
-    )
+    print("❌ Пустой заголовок.")
     return None
 
 if not article_text:
-    print(
-        "❌ Пустой текст статьи."
-    )
+    print("❌ Пустой текст статьи.")
     return None
 
 client = get_client()
 
 print(
-    f"🔄 Доступно моделей: "
-    f"{len(MODELS)}"
+    f"🔄 Доступно моделей: {len(MODELS)}"
 )
 
 for index, model in enumerate(
@@ -487,9 +452,7 @@ for index, model in enumerate(
     )
 
     print(
-        f"🔹 Модель "
-        f"{index}/{len(MODELS)}: "
-        f"{model}"
+        f"🔹 Модель {index}/{len(MODELS)}: {model}"
     )
 
     print(
@@ -506,8 +469,7 @@ for index, model in enumerate(
     if post:
 
         print(
-            f"✅ Успешно создано через "
-            f"{model}"
+            f"✅ Успешно создано через {model}"
         )
 
         return post
@@ -522,9 +484,7 @@ for index, model in enumerate(
 
 print()
 
-print(
-    "❌ Все модели недоступны."
-)
+print("❌ Все модели недоступны.")
 
 return None
 ```
@@ -532,28 +492,18 @@ return None
 if **name** == "**main**":
 
 ```
-print(
-    "Проверка AI Generator"
-)
+print("Проверка AI Generator")
 
 if check_configuration():
 
-    print(
-        "✓ OPENROUTER_API_KEY найден"
-    )
+    print("✓ OPENROUTER_API_KEY найден")
 
-    print(
-        "✓ Модели:"
-    )
+    print("✓ Модели:")
 
     for model in MODELS:
-
-        print(
-            f"  - {model}"
-        )
+        print(f"  - {model}")
 
 else:
 
-    print(
-        "❌ OPENROUTER_API_KEY отсутствует"
-    )
+    print("❌ OPENROUTER_API_KEY отсутствует")
+```
