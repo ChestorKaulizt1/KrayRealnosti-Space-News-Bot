@@ -5,8 +5,8 @@ workflow_dispatch:
 
 jobs:
 test:
-runs-on: ubuntu-24.04
+runs-on: ubuntu-latest
 
 steps:
-  - name: Test GitHub Actions
+  - name: Test
     run: echo "GitHub Actions WORKS"
