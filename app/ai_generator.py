@@ -21,4 +21,3 @@ if not check_configuration():
     return None
 
 return None
-```
