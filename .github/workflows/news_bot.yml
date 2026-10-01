@@ -1,12 +1,12 @@
 name: Space News Collector
 
 on:
-workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
-test:
-runs-on: ubuntu-latest
+  test:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Test
-    run: echo "GitHub Actions WORKS"
+    steps:
+      - name: Test
+        run: echo "GitHub Actions WORKS"
