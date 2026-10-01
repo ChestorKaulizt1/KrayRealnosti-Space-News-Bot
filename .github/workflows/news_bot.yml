@@ -59,4 +59,3 @@ steps:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
     run: |
       python -m app.main
-```
