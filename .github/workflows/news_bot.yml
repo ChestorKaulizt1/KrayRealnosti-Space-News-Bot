@@ -2,7 +2,6 @@ name: Space News Collector
 
 on:
 workflow_dispatch:
-
 schedule:
 - cron: "17 * * * *"
 
@@ -25,7 +24,8 @@ steps:
       python -m pip install --upgrade pip
       pip install -r requirements.txt
 
-  - name: Fix AI generator
+  - name: Create AI generator
+    shell: bash
     run: |
       cat > app/ai_generator.py <<'PYTHON'
       import os
@@ -52,7 +52,7 @@ steps:
           return None
       PYTHON
 
-  - name: Check Python syntax
+  - name: Check AI generator syntax
     run: |
       python -m py_compile app/ai_generator.py
       echo "Python syntax OK"
@@ -62,3 +62,4 @@ steps:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
     run: |
       python -m app.main
+```
