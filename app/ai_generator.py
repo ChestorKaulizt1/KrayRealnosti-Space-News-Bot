@@ -557,4 +557,3 @@ else:
     print(
         "❌ OPENROUTER_API_KEY отсутствует"
     )
-```
