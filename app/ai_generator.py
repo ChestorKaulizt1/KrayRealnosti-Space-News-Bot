@@ -4,6 +4,7 @@ import time
 
 from openai import OpenAI
 
+
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 MODEL = "qwen/qwen3.8-27b:free"
@@ -16,13 +17,16 @@ RETRY_DELAY = 5
 MIN_POST_LENGTH = 300
 MAX_ARTICLE_LENGTH = 18000
 
+
+client = None
+
 if OPENROUTER_API_KEY:
-client = OpenAI(
-base_url=OPENROUTER_URL,
-api_key=OPENROUTER_API_KEY,
-timeout=60.0,
-max_retries=0,
-)
+    client = OpenAI(
+        base_url=OPENROUTER_URL,
+        api_key=OPENROUTER_API_KEY,
+        timeout=60.0,
+        max_retries=0,
+    )
 else:
 client = None
 
