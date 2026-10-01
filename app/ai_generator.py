@@ -52,11 +52,10 @@ BAD_PATTERNS = [
 ]
 
 def check_configuration() -> bool:
-    if not OPENROUTER_API_KEY:
+if not OPENROUTER_API_KEY:
 print("❌ OPENROUTER_API_KEY не найден.")
 return False
 
-```
 return True
 ```
 
